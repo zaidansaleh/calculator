@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define UNREACHABLE() do { fprintf(stderr, "%s:%d: fatal: unreachable\n", __FILE__, __LINE__); abort(); } while (0)
+
 typedef enum {
     TOKEN_TYPE_NUMBER,
     TOKEN_TYPE_PLUS,
@@ -127,6 +129,30 @@ void ast_node_pprint(const ASTNode *node, int indent, FILE *stream) {
         ast_node_pprint(node->binary.right, indent + 1, stream);
         break;
     }
+}
+
+double ast_node_eval(const ASTNode *node) {
+    switch (node->type) {
+    case AST_NODE_NUMBER:
+        return node->number.value;
+    case AST_NODE_BINARY: {
+        double left = ast_node_eval(node->binary.left);
+        double right = ast_node_eval(node->binary.right);
+        switch (node->binary.op.type) {
+        case TOKEN_TYPE_PLUS:
+            return left + right;
+        case TOKEN_TYPE_MINUS:
+            return left - right;
+        case TOKEN_TYPE_STAR:
+            return left * right;
+        case TOKEN_TYPE_SLASH:
+            return left / right;
+        default:
+            UNREACHABLE();
+        }
+    }
+    }
+    UNREACHABLE();
 }
 
 typedef struct {
@@ -274,7 +300,8 @@ int main(void) {
         return 1;
     }
 
-    ast_node_pprint(root, 0, stdout);
+    double result = ast_node_eval(root);
+    printf("%g\n", result);
 
     if (root) {
         ast_node_free(root);
