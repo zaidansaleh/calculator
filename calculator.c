@@ -67,11 +67,41 @@ Token lexer_next(Lexer *lexer) {
         return token;
     }
 
-    if (*lexer->pos >= '1' && *lexer->pos <= '9') {
+    if (isdigit(*lexer->pos)) {
         const char *start = lexer->pos++;
-        while (*lexer->pos >= '0' && *lexer->pos <= '9') {
+
+        if (*start == '0') {
+            if (isdigit(*lexer->pos)) {
+                token.type = TOKEN_TYPE_INVALID;
+                return token;
+            }
+        }
+
+        while (isdigit(*lexer->pos)) {
             lexer->pos++;
         }
+
+        if (*lexer->pos == '.' && isdigit(lexer->pos[1])) {
+            lexer->pos++;
+            while (isdigit(*lexer->pos)) {
+                lexer->pos++;
+            }
+        }
+
+        if (*lexer->pos == 'e' || *lexer->pos == 'E') {
+            lexer->pos++;
+            if (*lexer->pos == '+' || *lexer->pos == '-') {
+                lexer->pos++;
+            }
+            if (!isdigit(*lexer->pos)) {
+                token.type = TOKEN_TYPE_INVALID;
+                return token;
+            }
+            while (isdigit(*lexer->pos)) {
+                lexer->pos++;
+            }
+        }
+
         token.type = TOKEN_TYPE_NUMBER;
         token.start = start;
         token.length = lexer->pos - start;
