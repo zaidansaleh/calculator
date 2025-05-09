@@ -1,7 +1,10 @@
 #include <ctype.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#define INPUT_SIZE 1024
 
 #define UNREACHABLE() do { fprintf(stderr, "%s:%d: fatal: unreachable\n", __FILE__, __LINE__); abort(); } while (0)
 
@@ -288,24 +291,43 @@ ASTNode *parse_number(Parser *parser) {
 }
 
 int main(void) {
-    const char *input = "1 + 2 - 3 * 4 / 5";
+    char input[INPUT_SIZE];
 
-    Parser parser = parser_new(input);
-    ASTNode *root = parse_start(&parser);
-    if (parser.errmsg) {
-        fprintf(stderr, "error: %s\n", parser.errmsg);
-        if (root) {
-            ast_node_free(root);
+    for (;;) {
+        printf("> ");
+
+        if (!fgets(input, sizeof(input), stdin)) {
+            if (ferror(stdin)) {
+                fprintf(stderr, "error: failed to read input: %s\n", strerror(errno));
+                return 1;
+            } else if (feof(stdin)) {
+                fputc('\n', stdout);
+                break;
+            }
         }
-        return 1;
-    }
 
-    double result = ast_node_eval(root);
-    printf("%g\n", result);
+        char *newline = strchr(input, '\n');
+        if (!newline) {
+            fprintf(stderr, "error: failed to read input: "
+                    "input was too long and got cut off (consider increasing the input buffer size)\n");
+            return 1;
+        }
 
-    if (root) {
+        Parser parser = parser_new(input);
+        ASTNode *root = parse_start(&parser);
+        if (parser.errmsg) {
+            fprintf(stderr, "error: %s\n", parser.errmsg);
+            if (root) {
+                ast_node_free(root);
+            }
+            continue;
+        }
+
+        double result = ast_node_eval(root);
+        printf("%g\n", result);
         ast_node_free(root);
     }
+
     return 0;
 }
 
