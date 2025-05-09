@@ -14,6 +14,8 @@ typedef enum {
     TOKEN_TYPE_MINUS,
     TOKEN_TYPE_STAR,
     TOKEN_TYPE_SLASH,
+    TOKEN_TYPE_LEFT_PAREN,
+    TOKEN_TYPE_RIGHT_PAREN,
     TOKEN_TYPE_INVALID,
     TOKEN_TYPE_EOF,
 } TokenType;
@@ -62,6 +64,16 @@ Token lexer_next(Lexer *lexer) {
         return token;
     case '/':
         token.type = TOKEN_TYPE_SLASH;
+        token.start = lexer->pos++;
+        token.length = 1;
+        return token;
+    case '(':
+        token.type = TOKEN_TYPE_LEFT_PAREN;
+        token.start = lexer->pos++;
+        token.length = 1;
+        return token;
+    case ')':
+        token.type = TOKEN_TYPE_RIGHT_PAREN;
         token.start = lexer->pos++;
         token.length = 1;
         return token;
@@ -204,6 +216,7 @@ Parser parser_new(const char *input) {
 ASTNode *parse_start(Parser *parser);
 ASTNode *parse_expr(Parser *parser);
 ASTNode *parse_term(Parser *parser);
+ASTNode *parse_factor(Parser *parser);
 ASTNode *parse_number(Parser *parser);
 
 ASTNode *parse_start(Parser *parser) {
@@ -248,7 +261,7 @@ ASTNode *parse_expr(Parser *parser) {
 }
 
 ASTNode *parse_term(Parser *parser) {
-    ASTNode *left = parse_number(parser);
+    ASTNode *left = parse_factor(parser);
     if (!left) {
         return NULL;
     }
@@ -258,7 +271,7 @@ ASTNode *parse_term(Parser *parser) {
         Token op = parser->current;
         parser->current = lexer_next(&parser->lexer);
 
-        ASTNode *right = parse_number(parser);
+        ASTNode *right = parse_factor(parser);
         if (!right) {
             return left;
         }
@@ -278,6 +291,28 @@ ASTNode *parse_term(Parser *parser) {
     }
 
     return left;
+}
+
+ASTNode *parse_factor(Parser *parser) {
+    if (parser->current.type == TOKEN_TYPE_NUMBER) {
+        return parse_number(parser);
+    }
+
+    if (parser->current.type != TOKEN_TYPE_LEFT_PAREN) {
+        parser->errmsg = "expected '('";
+        return NULL;
+    }
+    parser->current = lexer_next(&parser->lexer);
+
+    ASTNode *expr = parse_expr(parser);
+
+    if (parser->current.type != TOKEN_TYPE_RIGHT_PAREN) {
+        parser->errmsg = "expected ')'";
+        return expr;
+    }
+    parser->current = lexer_next(&parser->lexer);
+
+    return expr;
 }
 
 ASTNode *parse_number(Parser *parser) {
